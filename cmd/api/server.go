@@ -10,6 +10,21 @@ import (
 	"time"
 )
 
+func execsHandler(w http.ResponseWriter, r *http.Request){
+	switch r.Method {
+		case http.MethodGet:
+			w.Write([]byte("Hello GET Method on Execs Route"))
+		case http.MethodPost:
+			fmt.Println("Query: ", r.URL.Query())
+
+			err := r.ParseForm()
+			if err != nil {
+				return
+			}
+			fmt.Println("Form data from POST: ", r.Form)
+	}
+}
+
 func main() {
 	port := ":8080"
 
@@ -18,9 +33,7 @@ func main() {
 
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/", func(resp http.ResponseWriter, req *http.Request) {
-		fmt.Fprintln(resp, "Hello Server!")
-	})
+	mux.HandleFunc("/execs", execsHandler)
 
 	tlsConfig := &tls.Config{
 		MinVersion: tls.VersionTLS12,
