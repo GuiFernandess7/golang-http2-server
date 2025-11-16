@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"apiproject/internal/api/middlewares"
+	mw "apiproject/internal/api/middlewares"
 	"crypto/tls"
 	"path/filepath"
 )
@@ -27,7 +27,7 @@ func main() {
 
 	server := &http.Server{
 		Addr: port,
-		Handler: middlewares.SecurityHeaders(mux),
+		Handler: mw.SecurityHeaders(mw.Cors(mux)), 
 		TLSConfig: tlsConfig,
 	}
 
