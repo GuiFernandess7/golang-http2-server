@@ -4,7 +4,7 @@ import (
 	"net/http"
 )
 
-var allowOrigins = []string{
+var allowedOrigins = []string{
 	"https://localhost:8080",
 }
 
@@ -24,13 +24,18 @@ func Cors(next http.Handler) http.Handler {
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE")
 		w.Header().Set("Access-Control-Allow-Credentials", "true")
 		w.Header().Set("Access-Control-Max-Age", "3600")
+
+		if r.Method == http.MethodOptions {
+			return
+		}
+
 		next.ServeHTTP (w, r)
 	})
 }
 
 
 func isOriginAllowed(origin string) bool {
-	for _, allowOg := range allowOrigins {
+	for _, allowOg := range allowedOrigins {
 		if origin == allowOg {
 			return true
 		}

@@ -7,6 +7,7 @@ import (
 	mw "apiproject/internal/api/middlewares"
 	"crypto/tls"
 	"path/filepath"
+	"time"
 )
 
 func main() {
@@ -25,9 +26,19 @@ func main() {
 		MinVersion: tls.VersionTLS12,
 	}
 
+	rl := mw.NewRateLimiter(5, time.Minute)
+
+	middlewares := mw.Compression(
+		mw.ResponseTimeMiddleware(
+			mw.SecurityHeaders(
+				mw.Cors(mux),
+			),
+		),
+	)
+
 	server := &http.Server{
 		Addr: port,
-		Handler: mw.SecurityHeaders(mw.Cors(mux)), 
+		Handler: rl.Middleware(middlewares),
 		TLSConfig: tlsConfig,
 	}
 
