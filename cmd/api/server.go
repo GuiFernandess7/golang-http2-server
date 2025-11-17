@@ -45,7 +45,7 @@ func main() {
 		CheckQuery: 			  true,
 		CheckBody:  		      true,
 		CheckBodyForContentType:  "application/x-www-form-urlencoded",
-		Whitelist:				  []string{"allowedParam"},
+		Whitelist:				  []string{"sortBy", "sortOrder", "name", "age", "class"},
 	}
 
 	middlewares := mw.Compression(
