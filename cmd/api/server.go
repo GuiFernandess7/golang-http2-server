@@ -39,8 +39,6 @@ func main() {
 		MinVersion: tls.VersionTLS12,
 	}
 
-	rl := mw.NewRateLimiter(5, time.Minute)
-
 	hppOptions := mw.HPPOptions{
 		CheckQuery: 			  true,
 		CheckBody:  		      true,
@@ -48,15 +46,14 @@ func main() {
 		Whitelist:				  []string{"sortBy", "sortOrder", "name", "age", "class"},
 	}
 
-	middlewares := mw.Compression(
-		mw.ResponseTimeMiddleware(
-			mw.SecurityHeaders(
-				mw.Cors(mux),
-			),
+	middlewares := mw.ResponseTimeMiddleware(
+		mw.SecurityHeaders(
+			mw.Compression(mux),
 		),
 	)
 
-	secureMux := mw.HPP(hppOptions)(rl.Middleware(middlewares))
+	rl := mw.NewRateLimiter(5, time.Minute)
+	secureMux := mw.HPP(hppOptions)(mw.Cors(rl.Middleware(middlewares)))
 
 	server := &http.Server{
 		Addr: port,
