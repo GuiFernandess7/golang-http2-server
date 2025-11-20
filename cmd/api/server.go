@@ -10,19 +10,22 @@ import (
 	"sync"
 	"encoding/json"
 	"strings"
+	"strconv"
 )
 
 type Teacher struct {
-	ID 			int
-	FirstName 	string
-	LastName 	string
-	Class 		string
-	Subject		string
+	ID 			int		`json:"id,omitempty"`
+	FirstName 	string	`json:"first_name,omitempty"`
+	LastName 	string	`json:"last_name,omitempty"`
+	Class 		string  `json:"class,omitempty"`
+	Subject		string	`json:"subject,omitempty"`
 }
 
-var teachers = make(map[int]Teacher)
-var mutex = &sync.Mutex{}
-var nextID = 1
+var (
+	teachers 	= make(map[int]Teacher)
+	mutex 		= &sync.Mutex{}
+	nextID 		= 1
+)
 
 func init() {
 	teachers[nextID] = Teacher {
@@ -48,9 +51,10 @@ func init() {
 		Class: "B",
 		Subject: "Biology",
 	}
+	nextID++
 }
 
-func getTeachers(w http.ResponseWriter, r *http.Request){
+func getTeachersHandlers(w http.ResponseWriter, r *http.Request) {
 	fmt.Println(r.Method)
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusForbidden)
@@ -61,28 +65,78 @@ func getTeachers(w http.ResponseWriter, r *http.Request){
 	idStr := strings.TrimSuffix(path, "/")
 	fmt.Println(idStr)
 
-	firstName := r.URL.Query().Get("first_name")
-	lastName := r.URL.Query().Get("last_name")
+	if idStr == "" {
+		firstName := r.URL.Query().Get("first_name")
+		lastName := r.URL.Query().Get("last_name")
 
-	teacherList := make([]Teacher, 0, len(teachers))
-	for _, teacher := range teachers {
-		if (firstName == "" || teacher.FirstName == firstName) &&
-			(lastName == "" || teacher.LastName == lastName) {
-		teacherList = append(teacherList, teacher)
+		teacherList := make([]Teacher, 0, len(teachers))
+		for _, teacher := range teachers {
+			if (firstName == "" || teacher.FirstName == firstName) &&
+				(lastName == "" || teacher.LastName == lastName) {
+				teacherList = append(teacherList, teacher)
+			}
 		}
+
+		response := struct {
+			Status string   `json:"status"`
+			Count  int      `json:"count"`
+			Data   []Teacher `json:"data"`
+		}{
+			Status: "success",
+			Count:  len(teacherList),
+			Data:   teacherList,
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+		return
+
+	} else {
+		idInt, err := strconv.Atoi(idStr)
+		if err != nil {
+			http.Error(w, "Invalid parameter", http.StatusForbidden)
+			return
+		}
+
+		teacher, exists := teachers[idInt]
+		if !exists {
+			http.Error(w, "Teacher not found", http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(teacher)
+		return
+	}
+}
+
+func createTeacherHandler(w http.ResponseWriter, r *http.Request) {
+	mutex.Lock()
+	defer mutex.Unlock()
+	var newTeachers []Teacher
+	err := json.NewDecoder(r.Body).Decode(&newTeachers)
+	if err != nil {
+		http.Error(w, "Invalid Request Body", http.StatusBadRequest)
+		return
 	}
 
-	response := struct {
-		Status string `json:"status"`
-		Count int  	  `json:"count"`
-		Data []Teacher `json:"data"`
-	}{
-		Status: "success",
-		Count: len(teacherList),
-		Data: teacherList,
+	addedTeachers := make([]Teacher, len(newTeachers))
+	for i, newTeacher := range newTeachers {
+		newTeacher.ID = nextID
+		teachers[nextID] = newTeacher
+		addedTeachers[i] = newTeacher
+		nextID++
 	}
 
 	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	response := struct {
+		Status string   `json:"status"`
+		Count  int      `json:"count"`
+		Data   []Teacher `json:"data"`
+	}{
+		Status: "success",
+		Count:  len(addedTeachers),
+		Data:   addedTeachers,
+	}
 	json.NewEncoder(w).Encode(response)
 }
 
@@ -103,7 +157,16 @@ func main() {
 
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/teachers/", getTeachers)
+	mux.HandleFunc("/teachers/", func(w http.ResponseWriter, r *http.Request) {
+	    switch r.Method {
+	    case http.MethodGet:
+	        getTeachersHandlers(w, r)
+	    case http.MethodPost:
+	        createTeacherHandler(w, r)
+	    default:
+	        http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	    }
+	})
 
 	tlsConfig := &tls.Config{
 		MinVersion: tls.VersionTLS12,
