@@ -7,20 +7,26 @@ import (
 	mw "apiproject/internal/api/middlewares"
 	router "apiproject/internal/api/router"
 	sqlconnect "apiproject/internal/repository/sqlconnect"
+	"github.com/joho/godotenv"
 	//utils "apiproject/pkg/utils"
 	"crypto/tls"
 	"path/filepath"
+	"os"
 )
 
 func main() {
-	_, err := sqlconnect.ConnectDB("test_database")
+	err := godotenv.Load()
+	if err != nil {
+		panic(err)
+	}
+
+	_, err = sqlconnect.ConnectDB()
 	if err != nil {
 		fmt.Println("Error:----: ", err)
 		return
 	}
 
-	port := ":8080"
-
+	port := os.Getenv("API_PORT")
 	cert := filepath.Join("cmd", "config", "cert.pem")
 	key := filepath.Join("cmd", "config", "key.pem")
 
@@ -52,7 +58,7 @@ func main() {
 		TLSConfig: tlsConfig,
 	}
 
-	fmt.Println("Server Listening on port:", port)
+	fmt.Println("Server Listening on port:", os.Getenv("API_PORT"))
 	err = server.ListenAndServeTLS(cert, key)
 	if err != nil {
 		log.Fatalln("error starting server", err)
