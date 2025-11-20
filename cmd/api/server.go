@@ -5,23 +5,20 @@ import (
 	"log"
 	"net/http"
 	mw "apiproject/internal/api/middlewares"
-	handlers "apiproject/internal/api/handlers"
 	router "apiproject/internal/api/router"
+	sqlconnect "apiproject/internal/repository/sqlconnect"
 	//utils "apiproject/pkg/utils"
 	"crypto/tls"
 	"path/filepath"
 )
 
-type Middleware func(http.Handler) http.Handler
-
-func applyMiddlewares(handler http.Handler, middlewares ...Middleware) http.Handler {
-	for _, middleware := range middlewares {
-		handler = middleware(handler)
-	}
-	return handler
-}
-
 func main() {
+	_, err := sqlconnect.ConnectDB("test_database")
+	if err != nil {
+		fmt.Println("Error:----: ", err)
+		return
+	}
+
 	port := ":8080"
 
 	cert := filepath.Join("cmd", "config", "cert.pem")
@@ -56,7 +53,7 @@ func main() {
 	}
 
 	fmt.Println("Server Listening on port:", port)
-	err := server.ListenAndServeTLS(cert, key)
+	err = server.ListenAndServeTLS(cert, key)
 	if err != nil {
 		log.Fatalln("error starting server", err)
 	}
