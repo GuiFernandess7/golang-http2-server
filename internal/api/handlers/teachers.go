@@ -74,20 +74,22 @@ func getTeachersHandlers(w http.ResponseWriter, r *http.Request) {
 	fmt.Println(idStr)
 
 	if idStr == "" {
-		firstName := r.URL.Query().Get("first_name")
-		lastName := r.URL.Query().Get("last_name")
-
 		query := "SELECT id, first_name, last_name, email, class, subject FROM teachers WHERE 1=1"
 		var args []interface{}
-
-		if firstName != "" {
-			query += " AND first_name = ?"
-			args = append(args, firstName)
+		params := map[string]string {
+			"first_name": "first_name",
+			"last_name": "last_name",
+			"email": "email",
+			"class": "class",
+			"subject": "subject",
 		}
 
-		if lastName != "" {
-			query += " AND last_name = ?"
-			args = append(args, lastName)
+		for param, field := range params {
+			value := r.URL.Query().Get(param)
+			if value != ""{
+				query += " AND " + field + " = ?"
+				args = append(args, value)
+			}
 		}
 
 		rows, err := db.Query(query, args...)
