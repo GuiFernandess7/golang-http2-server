@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"fmt"
 	"sync"
+	"database/sql"
 
 	models "apiproject/internal/models"
 	sqlconnect "apiproject/internal/repository/sqlconnect"
@@ -57,6 +58,11 @@ func TeacherHandler(w http.ResponseWriter, r *http.Request){
 }
 
 func getTeachersHandlers(w http.ResponseWriter, r *http.Request) {
+	db, err := sqlconnect.ConnectDB()
+	if err != nil {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	}
+
 	fmt.Println(r.Method)
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusForbidden)
@@ -71,12 +77,44 @@ func getTeachersHandlers(w http.ResponseWriter, r *http.Request) {
 		firstName := r.URL.Query().Get("first_name")
 		lastName := r.URL.Query().Get("last_name")
 
-		teacherList := make([]models.Teacher, 0, len(teachers))
-		for _, teacher := range teachers {
-			if (firstName == "" || teacher.FirstName == firstName) &&
-				(lastName == "" || teacher.LastName == lastName) {
-				teacherList = append(teacherList, teacher)
+		query := "SELECT id, first_name, last_name, email, class, subject FROM teachers WHERE 1=1"
+		var args []interface{}
+
+		if firstName != "" {
+			query += " AND first_name = ?"
+			args = append(args, firstName)
+		}
+
+		if lastName != "" {
+			query += " AND last_name = ?"
+			args = append(args, lastName)
+		}
+
+		rows, err := db.Query(query, args...)
+		if err != nil {
+			fmt.Println(err)
+			http.Error(w, "Database Query Error", http.StatusInternalServerError)
+			return
+		}
+		defer rows.Close()
+
+		teacherList := make([]models.Teacher, 0)
+		for rows.Next(){
+			var teacher models.Teacher
+			err := rows.Scan(
+				&teacher.ID,
+				&teacher.FirstName,
+				&teacher.LastName,
+				&teacher.Email,
+				&teacher.Class,
+				&teacher.Subject,
+			)
+			if err != nil {
+				fmt.Println(err)
+				http.Error(w, "Error scanning results", http.StatusInternalServerError)
+				return
 			}
+			teacherList = append(teacherList, teacher)
 		}
 
 		response := struct {
@@ -99,11 +137,23 @@ func getTeachersHandlers(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		teacher, exists := teachers[idInt]
-		if !exists {
+		var teacher models.Teacher
+		err = db.QueryRow(
+			"SELECT id, first_name, last_name, email, class, subject FROM teachers WHERE id = ?", idInt).Scan(
+			&teacher.ID,
+			&teacher.FirstName,
+			&teacher.LastName,
+			&teacher.Email,
+			&teacher.Class,
+			&teacher.Subject,
+		)
+		if err == sql.ErrNoRows {
 			http.Error(w, "Teacher not found", http.StatusNotFound)
 			return
+		} else if err != nil {
+			http.Error(w, "Database query error", http.StatusInternalServerError)
 		}
+
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(teacher)
 		return
@@ -144,6 +194,7 @@ func createTeacherHandler(w http.ResponseWriter, r *http.Request) {
 			newTeacher.Subject,
 		)
 		if err != nil {
+			fmt.Printf("Error inserting data into database: %v", err)
 			http.Error(w, "Error inserting data into database", http.StatusInternalServerError)
 			return
 		}
